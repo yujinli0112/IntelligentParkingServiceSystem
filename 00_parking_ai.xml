@@ -1,0 +1,14 @@
+﻿<!--
+  昌平区智能停车客服系统 - AI语音服务
+  拨打 1000-1005 将呼叫转发到 Java 服务 (8084端口)
+-->
+<include>
+  <context name="default">
+    <extension name="parking_ai_service">
+      <condition field="destination_number" expression="^(100[0-5])$">
+        <action application="answer"/>
+        <action application="socket" data="127.0.0.1:8084 async full"/>
+      </condition>
+    </extension>
+  </context>
+</include>

@@ -1,0 +1,102 @@
+[
+  {
+    "id": "P001",
+    "name": "西关环岛停车场",
+    "aliases": ["西关那家", "西关停车场", "环岛停车场", "西关环岛"],
+    "address": "昌平区城北街道西关路2号",
+    "phone": "010-69741234",
+    "totalSpaces": 200,
+    "availableSpaces": 45,
+    "openTime": "06:00-23:00",
+    "feeStandard": "首小时5元，之后每小时3元，单日最高40元",
+    "feeDetail": {
+      "firstHour": 5,
+      "perHour": 3,
+      "dailyMax": 40,
+      "freeMinutes": 15
+    },
+    "description": "位于西关环岛东侧，毗邻昌平公园，步行5分钟可达地铁站。提供室内外停车位，支持微信、支付宝无感支付。",
+    "facilities": ["室内停车", "无感支付", "充电桩", "无障碍车位", "24小时监控"],
+    "nearbyLandmarks": ["昌平公园", "西关环岛", "昌平地铁站", "新世纪商城"]
+  },
+  {
+    "id": "P002",
+    "name": "昌平体育馆停车场",
+    "aliases": ["体育馆停车场", "昌平体育馆", "体育局停车场"],
+    "address": "昌平区南环路11号",
+    "phone": "010-80105678",
+    "totalSpaces": 350,
+    "availableSpaces": 120,
+    "openTime": "全天24小时",
+    "feeStandard": "小型车每小时4元，单日最高30元。大型车每小时8元，单日最高60元。",
+    "feeDetail": {
+      "firstHour": 4,
+      "perHour": 4,
+      "dailyMax": 30,
+      "freeMinutes": 30
+    },
+    "description": "昌平体育馆配套停车场，空间宽敞，车位充足。周边有餐饮、超市等配套设施，适合长时间停放。",
+    "facilities": ["露天停车", "无感支付", "充电桩", "洗车服务", "安保巡逻"],
+    "nearbyLandmarks": ["昌平体育馆", "昌平一中", "南环大桥", "亢山广场"]
+  },
+  {
+    "id": "P003",
+    "name": "龙德广场停车场",
+    "aliases": ["龙德广场", "立水桥龙德", "龙德停车楼"],
+    "address": "昌平区立汤路186号",
+    "phone": "010-84818899",
+    "totalSpaces": 800,
+    "availableSpaces": 230,
+    "openTime": "07:00-23:00",
+    "feeStandard": "首小时6元，之后每半小时3元，消费满200元免2小时。",
+    "feeDetail": {
+      "firstHour": 6,
+      "perHalfHour": 3,
+      "dailyMax": 80,
+      "freeMinutes": 15
+    },
+    "description": "龙德广场购物中心配套停车楼，共5层，车位充足。购物可抵扣停车费，支持ETC快速通行。",
+    "facilities": ["室内停车楼", "ETC通行", "无感支付", "充电桩", "新能源专区", "洗车服务"],
+    "nearbyLandmarks": ["龙德广场", "立水桥地铁站", "家乐福", "百安居"]
+  },
+  {
+    "id": "P004",
+    "name": "回龙观地铁站停车场",
+    "aliases": ["回龙观停车场", "回龙观地铁P+R", "霍营停车场"],
+    "address": "昌平区回龙观东大街站",
+    "phone": "010-80754321",
+    "totalSpaces": 500,
+    "availableSpaces": 85,
+    "openTime": "全天24小时",
+    "feeStandard": "P+R换乘优惠：持地铁乘车记录每日5元；普通停车每小时2元，单日最高20元。",
+    "feeDetail": {
+      "perHour": 2,
+      "dailyMax": 20,
+      "prDaily": 5,
+      "freeMinutes": 10
+    },
+    "description": "地铁13号线回龙观站P+R停车场，换乘地铁可享优惠停车。支持月卡办理，工作日早高峰车位紧张。",
+    "facilities": ["露天停车", "P+R优惠", "月卡服务", "自行车停放区"],
+    "nearbyLandmarks": ["回龙观地铁站", "回龙观华联", "回龙观医院", "体育公园"]
+  },
+  {
+    "id": "P005",
+    "name": "昌平医院停车场",
+    "aliases": ["区医院停车场", "昌平区医院", "县医院停车场"],
+    "address": "昌平区鼓楼北街9号",
+    "phone": "010-69742328",
+    "totalSpaces": 150,
+    "availableSpaces": 12,
+    "openTime": "全天24小时",
+    "feeStandard": "每小时3元，就诊患者凭当日病历免2小时。",
+    "feeDetail": {
+      "perHour": 3,
+      "dailyMax": 30,
+      "patientFreeHours": 2,
+      "freeMinutes": 20
+    },
+    "description": "昌平区医院院内停车场，车位紧张，高峰时段（上午8-10点）建议乘坐公共交通或停至周边商业停车场。",
+    "facilities": ["室内外结合", "就诊优惠", "无障碍车位", "急救通道"],
+    "nearbyLandmarks": ["昌平区医院", "鼓楼南街", "昌平一中", "昌平公园"]
+  }
+]

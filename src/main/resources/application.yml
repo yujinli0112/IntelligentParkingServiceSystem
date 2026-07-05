@@ -1,0 +1,100 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: parking-ai-callcenter
+  
+  datasource:
+    url: jdbc:mysql://localhost:3306/parking_ai?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: 1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: ParkingHikariPool
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 600000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+  
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  
+  data:
+    redis:
+      repositories:
+        enabled: false
+
+freeswitch:
+  esl:
+    enabled: false
+    host: 127.0.0.1
+    port: 8021
+    password: ClueCon
+  socket:
+    port: 8084
+
+asr:
+  provider: mock
+  aliyun:
+    appKey: your-app-key
+    accessKeyId: your-access-key-id
+    accessKeySecret: your-access-key-secret
+
+tts:
+  provider: sapi
+  sapi:
+    voice: Huihui
+  aliyun:
+    appKey: your-app-key
+    accessKeyId: your-access-key-id
+    accessKeySecret: your-access-key-secret
+    voice: xiaoyun
+    sampleRate: 8000
+
+llm:
+  provider: mock
+  deepseek:
+    baseUrl: https://api.deepseek.com
+    apiKey: sk-xxx
+    model: deepseek-chat
+  openai:
+    baseUrl: https://api.openai.com/v1
+    apiKey: sk-xxx
+    model: gpt-3.5-turbo
+
+parking:
+  db:
+    enabled: true
+  cache:
+    enabled: false
+
+session:
+  distributed:
+    enabled: false
+  expire: 3600
+
+knowledge:
+  dataFile: classpath:parking-data.json
+  similarityThreshold: 0.7
+  vectorTopK: 3
+  es:
+    enabled: false
+
+audio:
+  tempDir: ./temp/audio
+  sampleRate: 8000
+  channels: 1
+  sampleSizeInBits: 16
+
+logging:
+  level:
+    com.changping.parking: DEBUG
+    dev.langchain4j: INFO

@@ -1,0 +1,103 @@
+<include>
+  <user id="1000">
+    <params>
+      <param name="password" value="123456"/>
+      <param name="vm-password" value="1234"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="1000"/>
+      <variable name="user_context" value="default"/>
+      <variable name="effective_caller_id_name" value="User 1000"/>
+      <variable name="effective_caller_id_number" value="1000"/>
+      <variable name="outbound_caller_id_name" value="User 1000"/>
+      <variable name="outbound_caller_id_number" value="1000"/>
+      <variable name="callgroup" value="techsupport"/>
+    </variables>
+  </user>
+  
+  <user id="1001">
+    <params>
+      <param name="password" value="123456"/>
+      <param name="vm-password" value="1234"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="1001"/>
+      <variable name="user_context" value="default"/>
+      <variable name="effective_caller_id_name" value="User 1001"/>
+      <variable name="effective_caller_id_number" value="1001"/>
+      <variable name="outbound_caller_id_name" value="User 1001"/>
+      <variable name="outbound_caller_id_number" value="1001"/>
+      <variable name="callgroup" value="techsupport"/>
+    </variables>
+  </user>
+  
+  <user id="1002">
+    <params>
+      <param name="password" value="123456"/>
+      <param name="vm-password" value="1234"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="1002"/>
+      <variable name="user_context" value="default"/>
+      <variable name="effective_caller_id_name" value="User 1002"/>
+      <variable name="effective_caller_id_number" value="1002"/>
+      <variable name="outbound_caller_id_name" value="User 1002"/>
+      <variable name="outbound_caller_id_number" value="1002"/>
+      <variable name="callgroup" value="techsupport"/>
+    </variables>
+  </user>
+  
+  <user id="1003">
+    <params>
+      <param name="password" value="123456"/>
+      <param name="vm-password" value="1234"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="1003"/>
+      <variable name="user_context" value="default"/>
+      <variable name="effective_caller_id_name" value="User 1003"/>
+      <variable name="effective_caller_id_number" value="1003"/>
+      <variable name="outbound_caller_id_name" value="User 1003"/>
+      <variable name="outbound_caller_id_number" value="1003"/>
+      <variable name="callgroup" value="techsupport"/>
+    </variables>
+  </user>
+  
+  <user id="1004">
+    <params>
+      <param name="password" value="123456"/>
+      <param name="vm-password" value="1234"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="1004"/>
+      <variable name="user_context" value="default"/>
+      <variable name="effective_caller_id_name" value="User 1004"/>
+      <variable name="effective_caller_id_number" value="1004"/>
+      <variable name="outbound_caller_id_name" value="User 1004"/>
+      <variable name="outbound_caller_id_number" value="1004"/>
+      <variable name="callgroup" value="techsupport"/>
+    </variables>
+  </user>
+  
+  <user id="1005">
+    <params>
+      <param name="password" value="123456"/>
+      <param name="vm-password" value="1234"/>
+    </params>
+    <variables>
+      <variable name="toll_allow" value="domestic,international,local"/>
+      <variable name="accountcode" value="1005"/>
+      <variable name="user_context" value="default"/>
+      <variable name="effective_caller_id_name" value="User 1005"/>
+      <variable name="effective_caller_id_number" value="1005"/>
+      <variable name="outbound_caller_id_name" value="User 1005"/>
+      <variable name="outbound_caller_id_number" value="1005"/>
+      <variable name="callgroup" value="techsupport"/>
+    </variables>
+  </user>
+</include>

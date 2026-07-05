@@ -1,0 +1,25 @@
+# 编译目录
+target/
+out/
+build/
+
+# IDEA 配置
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse
+.classpath
+.project
+.c9/
+.settings/
+
+# 日志
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.bak
+.DS_Store

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<include>
+  <extension name="parking-ai">
+    <condition field="destination_number" expression="^1000$">
+      <action application="socket" data="127.0.0.1:8084 async full"/>
+      <action application="hangup"/>
+    </condition>
+    
+    <condition field="destination_number" expression="^1001$">
+      <action application="socket" data="127.0.0.1:8084 async full"/>
+      <action application="hangup"/>
+    </condition>
+    
+    <condition field="destination_number" expression="^1002$">
+      <action application="socket" data="127.0.0.1:8084 async full"/>
+      <action application="hangup"/>
+    </condition>
+    
+    <condition field="destination_number" expression="^1003$">
+      <action application="socket" data="127.0.0.1:8084 async full"/>
+      <action application="hangup"/>
+    </condition>
+    
+    <condition field="destination_number" expression="^1004$">
+      <action application="socket" data="127.0.0.1:8084 async full"/>
+      <action application="hangup"/>
+    </condition>
+    
+    <condition field="destination_number" expression="^1005$">
+      <action application="socket" data="127.0.0.1:8084 async full"/>
+      <action application="hangup"/>
+    </condition>
+  </extension>
+</include>

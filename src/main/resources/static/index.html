@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>昌平区智能停车电话客服系统 - WebSocket语音对话</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+            text-align: center;
+        }
+        .header h1 { font-size: 24px; margin-bottom: 8px; }
+        .header p { font-size: 14px; opacity: 0.9; }
+        
+        .chat-area {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .message {
+            display: flex;
+            margin-bottom: 16px;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .message.user { justify-content: flex-end; }
+        .message.bot { justify-content: flex-start; }
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        .message.bot .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e9ecef;
+            border-bottom-left-radius: 4px;
+        }
+        .message.bot .message-content .avatar {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            color: white;
+            text-align: center;
+            line-height: 24px;
+            font-size: 12px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 16px;
+            border-bottom-left-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        .typing-indicator span {
+            width: 6px;
+            height: 6px;
+            background: #667eea;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing { 0%,80%,100% { transform: scale(0); } 40% { transform: scale(1); } }
+        
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+        }
+        .input-row { display: flex; gap: 12px; }
+        .text-input {
+            flex: 1;
+            padding: 14px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 30px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .text-input:focus { border-color: #667eea; }
+        .button {
+            padding: 14px 24px;
+            border: none;
+            border-radius: 30px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .button.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .button.primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+        .button.microphone {
+            background: #ff6b6b;
+            color: white;
+            width: 56px;
+            height: 56px;
+            padding: 0;
+            border-radius: 50%;
+            justify-content: center;
+        }
+        .button.microphone:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(255,107,107,0.4); }
+        .button.microphone.recording {
+            animation: pulse 1.5s infinite;
+            background: #ff4757;
+        }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,71,87,0.4); } 70% { box-shadow: 0 0 0 10px rgba(255,71,87,0); } 100% { box-shadow: 0 0 0 0 rgba(255,71,87,0); } }
+        
+        .status-bar {
+            padding: 8px 20px;
+            background: #f8f9fa;
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+        }
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            background: #28a745;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+            animation: blink 2s infinite;
+        }
+        @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0.3; } }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px 20px;
+            font-size: 14px;
+            display: none;
+        }
+        .error-message.show { display: block; }
+        
+        .connection-status {
+            padding: 8px 20px;
+            font-size: 12px;
+        }
+        .connection-status.connected { background: #d4edda; color: #155724; }
+        .connection-status.disconnected { background: #f8d7da; color: #721c24; }
+        .connection-status.connecting { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚗 昌平区智能停车电话客服系统</h1>
+            <p>WebSocket 实时语音对话</p>
+        </div>
+
+        <div class="connection-status" id="connectionStatus">正在连接...</div>
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="chat-area" id="chatArea"></div>
+
+        <div class="status-bar">
+            <span><span class="status-indicator"></span>WebSocket 连接</span>
+            <span id="sessionInfo">未建立会话</span>
+        </div>
+
+        <div class="input-area">
+            <div class="input-row">
+                <button class="button microphone" id="micButton" title="点击说话">🎤</button>
+                <input type="text" class="text-input" id="textInput" placeholder="输入您的问题..." autocomplete="off">
+                <button class="button primary" id="sendButton">发送</button>
+            </div>
+            <div style="margin-top: 8px; font-size: 12px; color: #999;">
+                <span id="recordingStatus"></span>
+                <span style="margin-left: 16px;">💡 支持的问题：营业时间、收费标准、剩余车位、设施服务、联系方式</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let isSpeaking = false;
+        let sessionId = null;
+
+        const chatArea = document.getElementById('chatArea');
+        const textInput = document.getElementById('textInput');
+        const sendButton = document.getElementById('sendButton');
+        const micButton = document.getElementById('micButton');
+        const errorMessage = document.getElementById('errorMessage');
+        const sessionInfo = document.getElementById('sessionInfo');
+        const recordingStatus = document.getElementById('recordingStatus');
+        const connectionStatus = document.getElementById('connectionStatus');
+
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorMessage.classList.add('show');
+            setTimeout(() => errorMessage.classList.remove('show'), 3000);
+        }
+
+        function updateConnectionStatus(status) {
+            connectionStatus.textContent = status;
+            connectionStatus.className = 'connection-status ' + (status.includes('连接成功') ? 'connected' : status.includes('连接中') ? 'connecting' : 'disconnected');
+        }
+
+        function addMessage(text, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+            if (isUser) {
+                messageDiv.innerHTML = `<div class="message-content">${escapeHtml(text)}</div>`;
+            } else {
+                messageDiv.innerHTML = `<div class="message-content"><span class="avatar">AI</span><span>${escapeHtml(text)}</span></div>`;
+            }
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const url = `${protocol}//${window.location.host}/ws/voice`;
+            
+            ws = new WebSocket(url);
+            
+            ws.onopen = () => {
+                console.log('WebSocket 连接成功');
+                updateConnectionStatus('WebSocket 连接成功');
+                sessionId = ws.url.split('/').pop();
+                sessionInfo.textContent = '会话已建立';
+            };
+            
+            ws.onmessage = (event) => {
+                const message = event.data;
+                if (message.startsWith('text:')) {
+                    addMessage(message.substring(5), false);
+                } else if (message.startsWith('speak:')) {
+                    speakText(message.substring(6));
+                } else if (message.startsWith('error:')) {
+                    showError(message.substring(6));
+                } else if (message.startsWith('pong:')) {
+                    console.log('pong');
+                }
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket 连接关闭');
+                updateConnectionStatus('WebSocket 连接已断开');
+                sessionId = null;
+                sessionInfo.textContent = '会话已结束';
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket 错误:', error);
+                updateConnectionStatus('WebSocket 连接失败');
+            };
+        }
+
+        function sendTextMessage(text) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showError('连接未建立');
+                return;
+            }
+            if (!text.trim()) {
+                showError('请输入内容');
+                return;
+            }
+            addMessage(text, true);
+            textInput.value = '';
+            ws.send('text:' + text);
+        }
+
+        function speakText(text) {
+            if (!('speechSynthesis' in window)) return;
+            if (isSpeaking) window.speechSynthesis.cancel();
+            isSpeaking = true;
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-CN';
+            utterance.rate = 0.9;
+            utterance.onend = () => isSpeaking = false;
+            utterance.onerror = () => isSpeaking = false;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    await sendAudioMessage(audioBlob);
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                micButton.classList.add('recording');
+                recordingStatus.textContent = '🎙️ 正在录音，请说话...';
+            } catch (error) {
+                console.error('录音失败:', error);
+                showError('录音失败: ' + error.message);
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                micButton.classList.remove('recording');
+                recordingStatus.textContent = '';
+            }
+        }
+
+        async function sendAudioMessage(audioBlob) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showError('连接未建立');
+                return;
+            }
+
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+            
+            ws.send('audio:' + base64Audio);
+            recordingStatus.textContent = '🔄 正在识别...';
+        }
+
+        sendButton.addEventListener('click', () => sendTextMessage(textInput.value));
+        textInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendTextMessage(textInput.value);
+        });
+        
+        micButton.addEventListener('click', () => {
+            if (!('MediaRecorder' in window)) {
+                showError('您的浏览器不支持音频录制');
+                return;
+            }
+            if (isRecording) stopRecording();
+            else startRecording();
+        });
+
+        connectWebSocket();
+    </script>
+</body>
+</html>

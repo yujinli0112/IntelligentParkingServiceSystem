@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extension name="parking_ai_callcenter" continue="true">
+  <condition field="destination_number" expression="^123456$">
+    <action application="answer"/>
+    <action application="sleep" data="500"/>
+    <action application="playback" data="/usr/share/freeswitch/sounds/en/us/callie/ivr/8000/ivr-welcome_to.wav"/>
+    <action application="socket" data="host.docker.internal:8084 async full"/>
+  </condition>
+</extension>

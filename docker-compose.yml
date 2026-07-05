@@ -1,0 +1,6 @@
+services:
+  freeswitch:
+    image: indeed/freeswitch:latest
+    container_name: freeswitch-parking
+    network_mode: "host"
+    restart: unless-stopped
