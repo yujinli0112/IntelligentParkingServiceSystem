@@ -14,10 +14,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
+import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Sharable
@@ -31,6 +34,12 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
     private final CallRecordService callRecordService;
 
     private StringBuilder buffer = new StringBuilder();
+
+    /** 记录每个会话当前的录音阶段，避免重复触发 */
+    private final Map<String, String> recordState = new ConcurrentHashMap<>();
+
+    /** 录音文件存放目录 */
+    private static final String RECORD_DIR = "C:/Users/yujin/Desktop/IntelligentParkingServiceSystem/temp/record/";
 
     public AudioSocketByteHandler(@Lazy DialogManager dialogManager,
                                    CallSessionManager sessionManager,
@@ -151,7 +160,149 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
             handleHangup(ctx, bodyHeaders);
         } else if (bodyHeaders.contains("Event-Name: CHANNEL_ANSWER")) {
             log.info("text/event-plain: 通道已应答");
+        } else if (bodyHeaders.contains("Event-Name: CHANNEL_EXECUTE_COMPLETE")) {
+            handleExecuteComplete(ctx, bodyHeaders);
         }
+    }
+
+    /**
+     * 处理应用执行完成事件
+     * 当 playback 完成后开始录音，当 record 完成后读取录音文件并喂给 ASR
+     */
+    private void handleExecuteComplete(ChannelHandlerContext ctx, String bodyHeaders) {
+        String sessionId = extractHeaderValue(bodyHeaders, "Unique-ID");
+        if (sessionId == null) {
+            sessionId = findSessionId(ctx);
+        }
+        if (sessionId == null) {
+            log.warn("CHANNEL_EXECUTE_COMPLETE 但找不到 sessionId");
+            return;
+        }
+
+        String application = extractHeaderValue(bodyHeaders, "variable_current_application");
+        log.info("应用执行完成: sessionId={}, application={}", sessionId, application);
+
+        if ("playback".equalsIgnoreCase(application)) {
+            // 播放完成，开始后台录音
+            startRecording(sessionId);
+        } else if ("stop_record_session".equalsIgnoreCase(application)) {
+            // 停止录音完成，读取录音文件喂给 ASR
+            processRecording(sessionId);
+        }
+    }
+
+    /**
+     * 开始录音：使用 record_session 后台录音，不阻塞通道
+     * 5秒后自动发送 stop_record_session 停止
+     */
+    private void startRecording(String sessionId) {
+        CallSession session = sessionManager.getSession(sessionId);
+        if (session == null || session.getChannel() == null) {
+            return;
+        }
+
+        if ("recording".equals(recordState.get(sessionId))) {
+            return;
+        }
+        recordState.put(sessionId, "recording");
+
+        String recordFile = RECORD_DIR + sessionId + "_" + System.currentTimeMillis() + ".wav";
+        new File(RECORD_DIR).mkdirs();
+
+        final String finalRecordFile = recordFile;
+
+        session.getChannel().eventLoop().execute(() -> {
+            String command = "sendmsg " + sessionId + "\n" +
+                    "call-command: execute\n" +
+                    "execute-app-name: record_session\n" +
+                    "execute-app-arg: " + finalRecordFile + "\n\n";
+            byte[] data = command.getBytes(StandardCharsets.ISO_8859_1);
+            session.getChannel().writeAndFlush(
+                    session.getChannel().alloc().buffer(data.length).writeBytes(data));
+            log.info("开始后台录音(record_session): sessionId={}, file={}", sessionId, finalRecordFile);
+            session.setRecordFilePath(finalRecordFile);
+        });
+
+        // 启动定时器，5秒后停止录音
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+                session.getChannel().eventLoop().execute(() -> {
+                    String stopCmd = "sendmsg " + sessionId + "\n" +
+                            "call-command: execute\n" +
+                            "execute-app-name: stop_record_session\n" +
+                            "execute-app-arg: " + finalRecordFile + "\n\n";
+                    byte[] data = stopCmd.getBytes(StandardCharsets.ISO_8859_1);
+                    session.getChannel().writeAndFlush(
+                            session.getChannel().alloc().buffer(data.length).writeBytes(data));
+                    log.info("停止录音(stop_record_session): sessionId={}", sessionId);
+                });
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }, "record-timer-" + sessionId).start();
+    }
+
+    /**
+     * 录音完成后，读取录音文件并喂给 ASR
+     */
+    private void processRecording(String sessionId) {
+        CallSession session = sessionManager.getSession(sessionId);
+        if (session == null) {
+            return;
+        }
+        String recordFile = session.getRecordFilePath();
+        if (recordFile == null) {
+            log.warn("录音文件路径为空: sessionId={}", sessionId);
+            return;
+        }
+        processRecordingFile(sessionId, recordFile);
+    }
+
+    /**
+     * 读取录音文件并喂给 ASR
+     */
+    private void processRecordingFile(String sessionId, String recordFile) {
+        CallSession session = sessionManager.getSession(sessionId);
+        if (session == null) {
+            return;
+        }
+
+        recordState.put(sessionId, "processing");
+
+        new Thread(() -> {
+            try {
+                File file = new File(recordFile);
+                int retry = 0;
+                while (!file.exists() && file.length() == 0 && retry < 10) {
+                    Thread.sleep(200);
+                    retry++;
+                }
+
+                if (!file.exists() || file.length() == 0) {
+                    log.warn("录音文件不存在或为空: {}", recordFile);
+                    return;
+                }
+
+                log.info("读取录音文件: {}, 大小={} bytes", recordFile, file.length());
+
+                byte[] audioData = Files.readAllBytes(file.toPath());
+                // 跳过 WAV 文件头（44字节），只喂 PCM 数据给 ASR
+                int headerSize = 44;
+                if (audioData.length <= headerSize) {
+                    log.warn("录音文件太小: {}", audioData.length);
+                    return;
+                }
+                byte[] pcmData = new byte[audioData.length - headerSize];
+                System.arraycopy(audioData, headerSize, pcmData, 0, pcmData.length);
+
+                log.info("推送录音数据到 ASR: sessionId={}, pcmBytes={}", sessionId, pcmData.length);
+                asrService.feedAudio(sessionId, pcmData);
+
+            } catch (Exception e) {
+                log.error("处理录音文件失败: sessionId={}", sessionId, e);
+            }
+        }, "asr-process-" + sessionId).start();
     }
 
     private void handleConnect(ChannelHandlerContext ctx, String msg) {
@@ -199,6 +350,7 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
             }
             asrService.stopSession(sessionId);
             sessionManager.removeSession(sessionId);
+            recordState.remove(sessionId);
         }
 
         ctx.close();

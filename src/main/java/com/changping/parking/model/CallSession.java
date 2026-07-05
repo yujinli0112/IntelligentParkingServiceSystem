@@ -57,6 +57,9 @@ public class CallSession {
     /** 待确认的停车场名称（在确认阶段使用） */
     private String pendingParkingName;
 
+    /** 当前录音文件路径（用于录音式对话） */
+    private String recordFilePath;
+
     /**
      * 默认构造函数
      * 初始化状态为 WAITING_WELCOME，创建空的对话历史列表

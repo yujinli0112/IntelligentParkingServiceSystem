@@ -23,3 +23,6 @@ logs/
 *.tmp
 *.bak
 .DS_Store
+
+record/audio/
+record/record/
