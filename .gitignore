@@ -24,5 +24,5 @@ logs/
 *.bak
 .DS_Store
 
-record/audio/
-record/record/
+temp/audio/
+temp/record/
