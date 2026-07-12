@@ -331,7 +331,7 @@ public class DialogManager {
         }
 
         // 检测告别语
-        String[] goodbyes = {"再见", "拜拜", "没有问题了", "没问题了", "好了就这样", "就这样", "没了", "没有了", "谢谢", "感谢"};
+        String[] goodbyes = {"再见", "拜拜", "没有问题了", "没问题了", "没啥问题了", "没啥问题", "没啥了", "好了就这样", "就这样", "没了", "没有了", "谢谢", "感谢", "好的", "可以了"};
         for (String g : goodbyes) {
             if (text.contains(g)) return true;
         }

@@ -8,7 +8,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
-import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -48,7 +47,6 @@ public class BaiduAsrService implements AsrService {
     private long tokenExpireTime = 0;
 
     private static class BaiduAsrSession {
-        final ByteArrayOutputStream audioBuffer = new ByteArrayOutputStream();
         volatile boolean started = false;
     }
 
@@ -71,14 +69,10 @@ public class BaiduAsrService implements AsrService {
         }
 
         try {
-            // 将 PCM 数据写入缓冲区
-            session.audioBuffer.write(audioData);
-            session.audioBuffer.flush();
             session.started = true;
 
-            // 对整段音频进行识别
-            byte[] allPcmData = session.audioBuffer.toByteArray();
-            String text = recognizeAudio(allPcmData);
+            // 只发送本次收到的音频数据，不累积历史音频
+            String text = recognizeAudio(audioData);
 
             if (text != null && !text.isEmpty() && callback != null) {
                 log.info("百度 ASR 识别结果[{}]: {}", sessionId, text);

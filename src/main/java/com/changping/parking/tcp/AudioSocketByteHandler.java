@@ -185,15 +185,12 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
         if ("playback".equalsIgnoreCase(application)) {
             // 播放完成，开始后台录音
             startRecording(sessionId);
-        } else if ("stop_record_session".equalsIgnoreCase(application)) {
-            // 停止录音完成，读取录音文件喂给 ASR
-            processRecording(sessionId);
         }
     }
 
     /**
-     * 开始录音：使用 record_session 后台录音，不阻塞通道
-     * 5秒后自动发送 stop_record_session 停止
+     * 开始录音：使用 uuid_record API 只录制 read 方向（用户语音），避免录到 TTS 播放
+     * 5秒后自动停止并处理录音文件
      */
     private void startRecording(String sessionId) {
         CallSession session = sessionManager.getSession(sessionId);
@@ -209,34 +206,26 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
         String recordFile = RECORD_DIR + sessionId + "_" + System.currentTimeMillis() + ".wav";
         new File(RECORD_DIR).mkdirs();
 
-        final String finalRecordFile = recordFile;
-
         session.getChannel().eventLoop().execute(() -> {
-            String command = "sendmsg " + sessionId + "\n" +
-                    "call-command: execute\n" +
-                    "execute-app-name: record_session\n" +
-                    "execute-app-arg: " + finalRecordFile + "\n\n";
-            byte[] data = command.getBytes(StandardCharsets.ISO_8859_1);
-            session.getChannel().writeAndFlush(
-                    session.getChannel().alloc().buffer(data.length).writeBytes(data));
-            log.info("开始后台录音(record_session): sessionId={}, file={}", sessionId, finalRecordFile);
-            session.setRecordFilePath(finalRecordFile);
+            // 使用 uuid_record API，指定 read 方向只录制用户语音
+            String command = "uuid_record " + sessionId + " start " + recordFile + " 30 read";
+            sendApiCommand(session.getChannel(), command);
+            log.info("开始录音(uuid_record, read方向): sessionId={}, file={}", sessionId, recordFile);
+            session.setRecordFilePath(recordFile);
         });
 
-        // 启动定时器，5秒后停止录音
+        // 5秒后停止录音
         new Thread(() -> {
             try {
                 Thread.sleep(5000);
                 session.getChannel().eventLoop().execute(() -> {
-                    String stopCmd = "sendmsg " + sessionId + "\n" +
-                            "call-command: execute\n" +
-                            "execute-app-name: stop_record_session\n" +
-                            "execute-app-arg: " + finalRecordFile + "\n\n";
-                    byte[] data = stopCmd.getBytes(StandardCharsets.ISO_8859_1);
-                    session.getChannel().writeAndFlush(
-                            session.getChannel().alloc().buffer(data.length).writeBytes(data));
-                    log.info("停止录音(stop_record_session): sessionId={}", sessionId);
+                    String stopCmd = "uuid_record " + sessionId + " stop " + recordFile;
+                    sendApiCommand(session.getChannel(), stopCmd);
+                    log.info("停止录音(uuid_record): sessionId={}", sessionId);
                 });
+                // 等待录音文件写入完成
+                Thread.sleep(500);
+                processRecordingFile(sessionId, recordFile);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -398,6 +387,13 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
         byte[] data = (command + "\n\n").getBytes(StandardCharsets.ISO_8859_1);
         ctx.writeAndFlush(ctx.alloc().buffer(data.length).writeBytes(data));
         log.debug("发送命令: {}", command);
+    }
+
+    private void sendApiCommand(io.netty.channel.Channel channel, String command) {
+        String fullCommand = "api " + command + "\n\n";
+        byte[] data = fullCommand.getBytes(StandardCharsets.ISO_8859_1);
+        channel.writeAndFlush(channel.alloc().buffer(data.length).writeBytes(data));
+        log.debug("发送 API 命令: {}", command);
     }
 
     private Map<String, String> parseHeaders(String msg) {
