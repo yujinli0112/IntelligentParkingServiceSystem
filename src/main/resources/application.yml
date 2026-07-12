@@ -42,7 +42,10 @@ freeswitch:
     port: 8084
 
 asr:
-  provider: mock
+  provider: baidu
+  baidu:
+    apiKey: doUC2ita7Q47IJ4IRrNnQFyG
+    secretKey: hBCaLapp1TvxcyeZ8txuel8uAS51908G
   aliyun:
     appKey: your-app-key
     accessKeyId: your-access-key-id

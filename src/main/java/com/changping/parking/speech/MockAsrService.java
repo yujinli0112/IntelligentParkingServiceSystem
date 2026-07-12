@@ -1,6 +1,7 @@
 package com.changping.parking.speech;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -9,6 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Service
+@ConditionalOnProperty(name = "asr.provider", havingValue = "mock", matchIfMissing = true)
 public class MockAsrService implements AsrService {
 
     private final Map<String, AsrSession> sessions = new ConcurrentHashMap<>();
