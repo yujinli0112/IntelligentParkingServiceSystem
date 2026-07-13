@@ -113,6 +113,7 @@ system:
   goodbye: 感谢您的来电，祝您停车愉快，再见！
   exampleParking: 比如西关环岛停车场或者体育馆停车场
   notFoundParking: 抱歉，没有找到您说的这个停车场。请问您想查询哪个停车场呢？
+  switchParking: 好的，请问您想查询哪个停车场呢？
 
 management:
   endpoints:

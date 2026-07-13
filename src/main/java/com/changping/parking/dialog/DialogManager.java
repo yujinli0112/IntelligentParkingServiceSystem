@@ -80,6 +80,9 @@ public class DialogManager {
     @Value("${system.notFoundParking:抱歉，没有找到您说的这个停车场。请问您想查询哪个停车场呢？}")
     private String notFoundParkingText;
 
+    @Value("${system.switchParking:好的，请问您想查询哪个停车场呢？}")
+    private String switchParkingText;
+
     /**
      * 构造函数
      * 
@@ -208,8 +211,9 @@ public class DialogManager {
      * @return 系统回复
      */
     private String handleParkConfirmation(CallSession session, String text) {
-        boolean confirmed = isAffirmative(text);
+        // 先检测否定（"不是"也包含"是"字，必须先排除）
         boolean denied = isNegative(text);
+        boolean confirmed = !denied && isAffirmative(text);
 
         if (confirmed) {
             session.setCurrentParkingId(session.getPendingParkingId());
@@ -250,6 +254,16 @@ public class DialogManager {
     private String handleQaLoop(CallSession session, String text) {
         if (isGoodbye(text)) {
             return handleEnd(session);
+        }
+
+        // 检测用户是否想切换停车场
+        if (wantsSwitchParking(text)) {
+            session.setCurrentParkingId(null);
+            session.setCurrentParkingName(null);
+            session.transitionTo(DialogState.IDENTIFYING_PARK);
+            session.addBotMessage(switchParkingText);
+            audioSocketByteHandler.playAudioInline(session.getSessionId(), switchParkingText);
+            return switchParkingText;
         }
 
         String answer = ragService.generateAnswer(session.getCurrentParkingId(), text);
@@ -380,6 +394,21 @@ public class DialogManager {
      */
     private boolean containsParkingKeyword(String text) {
         String[] keywords = {"停车场", "停车", "车位", "parking", "车库"};
+        for (String k : keywords) {
+            if (text.contains(k)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * 判断用户是否想切换停车场
+     */
+    private boolean wantsSwitchParking(String text) {
+        String[] keywords = {
+            "其他停车场", "别的停车场", "另一个停车场", "换一个停车场", "换停车场",
+            "切换停车场", "换一家", "其他停车", "别的停车",
+            "其他家", "另一家", "换一个地方"
+        };
         for (String k : keywords) {
             if (text.contains(k)) return true;
         }
