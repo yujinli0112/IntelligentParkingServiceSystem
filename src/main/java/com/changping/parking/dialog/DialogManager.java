@@ -178,6 +178,11 @@ public class DialogManager {
      * @return 系统回复
      */
     private String handleIdentifyingPark(CallSession session, String text) {
+        // 先检测再见，避免用户说"哪个都不想查询再见"时被误判为没听清
+        if (isGoodbye(text)) {
+            return handleEnd(session);
+        }
+
         String parkingId = intentParser.matchParking(text);
         String parkingName = intentParser.getParkingName(parkingId);
 
@@ -256,7 +261,19 @@ public class DialogManager {
             return handleEnd(session);
         }
 
-        // 检测用户是否想切换停车场
+        // 检测用户是否提到了另一个停车场名称（直接匹配优先级最高）
+        String otherParkingId = intentParser.matchParking(text);
+        if (otherParkingId != null && !otherParkingId.equals(session.getCurrentParkingId())) {
+            String otherParkingName = intentParser.getParkingName(otherParkingId);
+            session.setCurrentParkingId(otherParkingId);
+            session.setCurrentParkingName(otherParkingName);
+            String answer = ragService.generateAnswer(otherParkingId, text);
+            session.addBotMessage(answer);
+            audioSocketByteHandler.playAudioInline(session.getSessionId(), answer);
+            return answer;
+        }
+
+        // 检测用户是否想切换停车场（未指定具体名称，如"换一个"）
         if (wantsSwitchParking(text)) {
             session.setCurrentParkingId(null);
             session.setCurrentParkingName(null);

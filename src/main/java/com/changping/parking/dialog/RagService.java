@@ -105,9 +105,52 @@ public class RagService {
             return String.format("%s提供以下服务和设施：%s。", parking.getName(), facilities);
         }
 
-        if (matchesPattern(q, "周边|附近|地标|旁边|周围")) {
+        if (matchesPattern(q, "周边|附近|地标|旁边|周围|吃的|美食|餐厅|饭店|商场|超市|购物|医院|交通")) {
+            if (parking.getNearbyPoiJson() != null && !parking.getNearbyPoiJson().isEmpty()) {
+                return String.format("关于%s周边，%s", parking.getName(), parking.getNearbyPoiJson());
+            }
             String landmarks = String.join("、", parking.getNearbyLandmarks());
             return String.format("%s周边有：%s。", parking.getName(), landmarks);
+        }
+
+        if (matchesPattern(q, "支付|现金|微信|支付宝|刷卡|ETC|银行卡")) {
+            return String.format("%s支持的支付方式有：%s。", parking.getName(),
+                    parking.getPaymentMethods() != null ? parking.getPaymentMethods() : "现金、微信、支付宝");
+        }
+
+        if (matchesPattern(q, "充电|充电桩|电车|新能源")) {
+            int stations = parking.getChargingStations() != null ? parking.getChargingStations() : 0;
+            if (stations > 0) {
+                return String.format("%s设有%d个充电桩，可以给新能源车充电。", parking.getName(), stations);
+            }
+            return String.format("%s暂时没有充电桩。", parking.getName());
+        }
+
+        if (matchesPattern(q, "限高|高度|房车|大车|SUV|限高多少")) {
+            if (parking.getHeightLimit() != null) {
+                return String.format("%s的限高为%.1f米。", parking.getName(), parking.getHeightLimit());
+            }
+            return String.format("%s没有限高限制。", parking.getName());
+        }
+
+        if (matchesPattern(q, "地下|地面|停车场类型")) {
+            boolean underground = parking.getIsUnderground() != null && parking.getIsUnderground() == 1;
+            return String.format("%s是%s停车场。", parking.getName(), underground ? "地下" : "地面");
+        }
+
+        if (matchesPattern(q, "安保|监控|安全|保安")) {
+            return String.format("%s的安保措施：%s。", parking.getName(),
+                    parking.getSecurity() != null ? parking.getSecurity() : "24小时监控");
+        }
+
+        if (matchesPattern(q, "节假日|节日|过年|国庆|春节|放假")) {
+            return String.format("%s的节假日收费标准：%s。", parking.getName(),
+                    parking.getHolidayFee() != null ? parking.getHolidayFee() : parking.getFeeStandard());
+        }
+
+        if (matchesPattern(q, "月租|包月|月卡|包年|长期")) {
+            return String.format("%s的月租信息：%s。", parking.getName(),
+                    parking.getMonthlyRent() != null ? parking.getMonthlyRent() : "暂不支持月租");
         }
 
         if (matchesPattern(q, "介绍|简介|怎么样|好不好|说说")) {
@@ -181,6 +224,31 @@ public class RagService {
         sb.append("停车场介绍：").append(parking.getDescription()).append("\n");
         sb.append("设施服务：").append(String.join("、", parking.getFacilities())).append("\n");
         sb.append("周边地标：").append(String.join("、", parking.getNearbyLandmarks())).append("\n");
+        // 商用扩展字段
+        if (parking.getPaymentMethods() != null) {
+            sb.append("支付方式：").append(parking.getPaymentMethods()).append("\n");
+        }
+        if (parking.getNearbyPoiJson() != null) {
+            sb.append("周边信息：").append(parking.getNearbyPoiJson()).append("\n");
+        }
+        if (parking.getHeightLimit() != null) {
+            sb.append("限高：").append(parking.getHeightLimit()).append("米\n");
+        }
+        if (parking.getChargingStations() != null && parking.getChargingStations() > 0) {
+            sb.append("充电桩：").append(parking.getChargingStations()).append("个\n");
+        }
+        if (parking.getIsUnderground() != null && parking.getIsUnderground() == 1) {
+            sb.append("停车场类型：地下停车场\n");
+        }
+        if (parking.getSecurity() != null) {
+            sb.append("安保措施：").append(parking.getSecurity()).append("\n");
+        }
+        if (parking.getHolidayFee() != null) {
+            sb.append("节假日收费：").append(parking.getHolidayFee()).append("\n");
+        }
+        if (parking.getMonthlyRent() != null) {
+            sb.append("月租信息：").append(parking.getMonthlyRent()).append("\n");
+        }
         return sb.toString();
     }
 
@@ -195,10 +263,10 @@ public class RagService {
      * @return 完整的提示词
      */
     private String buildPrompt(String parkingName, String context, String question) {
-        return "你是" + parkingName + "的智能客服，只回答与该停车场相关的问题。\n\n" +
+        return "你是" + parkingName + "的智能客服，可以回答与该停车场相关的各类问题，包括停车收费、车位、地址、支付方式、周边美食、配套设施等。\n\n" +
                 "已知信息：\n" + context + "\n\n" +
                 "用户问题：" + question + "\n\n" +
-                "请用简洁、自然的口语化中文回答。如果问题与停车场无关，礼貌地说明只回答停车相关问题。回答控制在2-3句话以内。";
+                "请用简洁、自然的口语化中文回答。如果已知信息中有相关内容，直接回答；如果确实没有相关信息，礼貌地说明暂不清楚。回答控制在2-3句话以内。";
     }
 
     /**

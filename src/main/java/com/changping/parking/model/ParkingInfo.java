@@ -115,6 +115,47 @@ public class ParkingInfo {
     @Column(name = "status")
     private Integer status;
 
+    // ========== 以下为商用扩展字段 ==========
+
+    /** 支持的支付方式，逗号分隔（如：现金,微信,支付宝,ETC,银行卡） */
+    @Column(name = "payment_methods", length = 200)
+    @Field(type = FieldType.Keyword)
+    private String paymentMethods;
+
+    /** 周边信息 JSON 字符串（美食、商场、医院、交通等） */
+    @Column(name = "nearby_poi", columnDefinition = "TEXT")
+    @Field(type = FieldType.Object)
+    private String nearbyPoiJson;
+
+    /** 限高（米），NULL 表示无限高 */
+    @Column(name = "height_limit")
+    @Field(type = FieldType.Float)
+    private Double heightLimit;
+
+    /** 充电桩数量 */
+    @Column(name = "charging_stations")
+    @Field(type = FieldType.Integer)
+    private Integer chargingStations;
+
+    /** 是否地下停车场（1-是，0-否） */
+    @Column(name = "is_underground")
+    private Integer isUnderground;
+
+    /** 安保措施描述（如：24小时监控、保安巡逻、无死角摄像头） */
+    @Column(name = "security", length = 100)
+    @Field(type = FieldType.Keyword)
+    private String security;
+
+    /** 节假日收费标准 */
+    @Column(name = "holiday_fee", length = 200)
+    @Field(type = FieldType.Text, analyzer = "ik_max_word")
+    private String holidayFee;
+
+    /** 月租/包月信息 */
+    @Column(name = "monthly_rent", length = 200)
+    @Field(type = FieldType.Text, analyzer = "ik_max_word")
+    private String monthlyRent;
+
     /**
      * 在持久化前自动设置创建时间和更新时间
      */

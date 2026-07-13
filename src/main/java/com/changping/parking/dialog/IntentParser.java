@@ -2,11 +2,14 @@ package com.changping.parking.dialog;
 
 import com.changping.parking.model.ParkingInfo;
 import com.changping.parking.knowledge.ParkingInfoService;
+import dev.langchain4j.model.chat.ChatLanguageModel;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 意图解析器
@@ -25,6 +28,10 @@ public class IntentParser {
 
     /** 停车场信息服务，用于获取所有停车场数据 */
     private final ParkingInfoService parkingInfoService;
+
+    /** LLM 模型，用于语义意图识别（可选注入，未配置时为 null） */
+    @Autowired(required = false)
+    private ChatLanguageModel chatLanguageModel;
 
     /**
      * 构造函数
@@ -76,6 +83,16 @@ public class IntentParser {
         }
 
         log.warn("未匹配到停车场: {}", userInput);
+
+        // 规则匹配失败，尝试 LLM 语义匹配
+        if (chatLanguageModel != null) {
+            String llmMatch = matchParkingByLlm(input);
+            if (llmMatch != null) {
+                log.info("LLM 语义匹配成功: {} -> {}", userInput, llmMatch);
+                return llmMatch;
+            }
+        }
+
         return null;
     }
 
@@ -214,5 +231,63 @@ public class IntentParser {
         }
 
         return (int) (100.0 * commonChars / Math.max(s1.length(), s2.length()));
+    }
+
+    /**
+     * LLM 语义匹配停车场
+     * 
+     * 当规则匹配全部失败时，使用 LLM 进行语义理解。
+     * 将用户输入和所有停车场信息发送给 LLM，由 LLM 判断用户指的是哪个停车场。
+     * 如果 LLM 未配置或调用失败，返回 null。
+     * 
+     * @param userInput 用户输入文本
+     * @return 匹配到的停车场 ID，如果未匹配到返回 null
+     */
+    private String matchParkingByLlm(String userInput) {
+        try {
+            List<ParkingInfo> all = parkingInfoService.getAll();
+            if (all.isEmpty()) return null;
+
+            // 构建停车场列表描述
+            String parkingList = all.stream()
+                    .map(p -> {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append("ID=").append(p.getId())
+                          .append(", 名称=").append(p.getName());
+                        if (p.getAliases() != null && !p.getAliases().isEmpty()) {
+                            sb.append(", 别名=").append(String.join("/", p.getAliases()));
+                        }
+                        if (p.getDescription() != null) {
+                            sb.append(", 描述=").append(p.getDescription());
+                        }
+                        if (p.getAddress() != null) {
+                            sb.append(", 地址=").append(p.getAddress());
+                        }
+                        return sb.toString();
+                    })
+                    .collect(Collectors.joining("\n"));
+
+            String prompt = String.format(
+                "你是一个停车场名称识别助手。用户会用口语化的方式描述停车场，你需要判断用户指的是下面哪个停车场。\n\n" +
+                "停车场列表：\n%s\n\n" +
+                "用户说：\"%s\"\n\n" +
+                "请只回复停车场ID（如P001），如果都不匹配请回复NONE。不要回复其他内容。",
+                parkingList, userInput
+            );
+
+            String response = chatLanguageModel.generate(prompt).trim();
+            log.debug("LLM 意图识别响应: {}", response);
+
+            // 验证返回的 ID 是否有效
+            if ("NONE".equalsIgnoreCase(response)) return null;
+            if (response.matches("P\\d+")) {
+                ParkingInfo info = parkingInfoService.getById(response);
+                if (info != null) return response;
+            }
+            return null;
+        } catch (Exception e) {
+            log.warn("LLM 语义匹配失败，回退到规则匹配: {}", e.getMessage());
+            return null;
+        }
     }
 }
