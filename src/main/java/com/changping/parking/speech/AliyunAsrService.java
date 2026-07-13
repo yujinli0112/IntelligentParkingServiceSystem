@@ -1,7 +1,7 @@
 package com.changping.parking.speech;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -36,7 +36,8 @@ public class AliyunAsrService implements AsrService {
     @Value("${asr.aliyun.accessKeySecret}")
     private String accessKeySecret;
 
-    private static final String WS_URL = "wss://nls-gateway-cn-shanghai.aliyuncs.com/ws/v1";
+    @Value("${asr.aliyun.wsUrl:wss://nls-gateway-cn-shanghai.aliyuncs.com/ws/v1}")
+    private String wsUrl;
     private AsrResultCallback callback;
     private final ConcurrentHashMap<String, AliyunAsrSession> sessions = new ConcurrentHashMap<>();
 
@@ -46,11 +47,12 @@ public class AliyunAsrService implements AsrService {
             AliyunAsrSession asrSession = new AliyunAsrSession();
             asrSession.sessionId = sessionId;
             String token = generateToken();
-            connectWebSocket(asrSession, token);
             sessions.put(sessionId, asrSession);
+            connectWebSocket(asrSession, token);
             log.info("阿里云 ASR 会话启动: {}", sessionId);
         } catch (Exception e) {
-            log.error("阿里云 ASR 启动失败", e);
+            log.error("阿里云 ASR 启动失败: sessionId={}", sessionId, e);
+            sessions.remove(sessionId);
         }
     }
 
@@ -149,7 +151,7 @@ public class AliyunAsrService implements AsrService {
 
         client.newWebSocketBuilder()
                 .header("X-NLS-Token", token)
-                .buildAsync(URI.create(WS_URL), listener);
+                .buildAsync(URI.create(wsUrl), listener);
     }
 
     private void handleAsrMessage(String sessionId, String msg) {
@@ -167,7 +169,6 @@ public class AliyunAsrService implements AsrService {
                     log.info("ASR 识别结果[{}]: {}", sessionId, text);
                     callback.onResult(sessionId, text, true);
                 }
-                sessionId = sessionId;
             } else if ("TranscriptionResultChanged".equals(name) && payload != null) {
                 String text = payload.getString("result");
                 if (text != null && !text.isEmpty() && callback != null) {

@@ -1,6 +1,6 @@
 package com.changping.parking.speech;
 
-import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson2.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -41,7 +41,8 @@ public class AliyunTtsService implements TtsService {
     @Value("${audio.tempDir:./temp/audio}")
     private String tempDir;
 
-    private static final String TTS_URL = "https://nls-gateway-cn-shanghai.aliyuncs.com/stream/v1/tts";
+    @Value("${tts.aliyun.url:https://nls-gateway-cn-shanghai.aliyuncs.com/stream/v1/tts}")
+    private String ttsUrl;
 
     @Override
     public String synthesize(String sessionId, String text) {
@@ -83,7 +84,7 @@ public class AliyunTtsService implements TtsService {
 
             java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
             java.net.http.HttpRequest httpRequest = java.net.http.HttpRequest.newBuilder()
-                    .uri(java.net.URI.create(TTS_URL))
+                    .uri(java.net.URI.create(ttsUrl))
                     .header("Content-Type", "application/json")
                     .POST(java.net.http.HttpRequest.BodyPublishers.ofString(request.toJSONString()))
                     .build();
@@ -126,9 +127,9 @@ public class AliyunTtsService implements TtsService {
 
     private void saveWavFile(byte[] audioData, File file) throws IOException {
         AudioFormat format = new AudioFormat(sampleRate, 16, 1, true, false);
-        ByteArrayInputStream bais = new ByteArrayInputStream(audioData);
-        AudioInputStream ais = new AudioInputStream(bais, format, audioData.length / format.getFrameSize());
-        AudioSystem.write(ais, AudioFileFormat.Type.WAVE, file);
-        ais.close();
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(audioData);
+             AudioInputStream ais = new AudioInputStream(bais, format, audioData.length / format.getFrameSize())) {
+            AudioSystem.write(ais, AudioFileFormat.Type.WAVE, file);
+        }
     }
 }

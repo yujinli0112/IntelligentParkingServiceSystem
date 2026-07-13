@@ -26,6 +26,7 @@ public class AudioSocketServer implements CommandLineRunner {
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
+    private ChannelFuture channelFuture;
 
     public AudioSocketServer(AudioSocketByteHandler audioSocketByteHandler) {
         this.audioSocketByteHandler = audioSocketByteHandler;
@@ -47,7 +48,7 @@ public class AudioSocketServer implements CommandLineRunner {
                     }
                 });
 
-        bootstrap.bind(port).addListener(future -> {
+        channelFuture = bootstrap.bind(port).addListener(future -> {
             if (future.isSuccess()) {
                 log.info("AudioSocketServer 启动成功，监听端口: {}", port);
             } else {
@@ -59,6 +60,9 @@ public class AudioSocketServer implements CommandLineRunner {
     @PreDestroy
     public void destroy() {
         log.info("关闭 AudioSocketServer...");
+        if (channelFuture != null) {
+            channelFuture.channel().close();
+        }
         if (bossGroup != null) {
             bossGroup.shutdownGracefully();
         }

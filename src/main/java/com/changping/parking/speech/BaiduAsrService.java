@@ -1,7 +1,7 @@
 package com.changping.parking.speech;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -135,7 +135,7 @@ public class BaiduAsrService implements AsrService {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             JSONObject result = JSON.parseObject(response.body());
 
-            log.info("百度 ASR 响应: {}", result.toJSONString());
+            log.debug("百度 ASR 响应: {}", result.toJSONString());
 
             int errNo = result.getIntValue("err_no");
             if (errNo == 0) {

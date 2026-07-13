@@ -10,7 +10,9 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +23,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Slf4j
 @Sharable
@@ -33,13 +37,23 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
     private final TtsService ttsService;
     private final CallRecordService callRecordService;
 
-    private StringBuilder buffer = new StringBuilder();
+    /** 每个 Channel 独立的 buffer，使用 AttributeKey 避免 @Sharable 下的并发问题 */
+    private static final AttributeKey<StringBuilder> BUFFER_KEY = AttributeKey.valueOf("buffer");
 
     /** 记录每个会话当前的录音阶段，避免重复触发 */
     private final Map<String, String> recordState = new ConcurrentHashMap<>();
 
     /** 录音文件存放目录 */
-    private static final String RECORD_DIR = "C:/Users/yujin/Desktop/IntelligentParkingServiceSystem/temp/record/";
+    @Value("${audio.recordDir:./temp/record}")
+    private String recordDir;
+
+    /** 线程池，用于异步录音和 ASR 处理 */
+    private final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        t.setName("parking-async-" + t.getId());
+        return t;
+    });
 
     public AudioSocketByteHandler(@Lazy DialogManager dialogManager,
                                    CallSessionManager sessionManager,
@@ -56,7 +70,7 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
         log.info("新的 FreeSWITCH 连接建立: {}", ctx.channel().remoteAddress());
-        buffer = new StringBuilder();
+        ctx.channel().attr(BUFFER_KEY).set(new StringBuilder());
         // 发送 connect 确认，告诉 FreeSWITCH 本端已就绪，开始接收事件
         sendCommand(ctx, "connect");
     }
@@ -66,6 +80,12 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
         byte[] bytes = new byte[msg.readableBytes()];
         msg.readBytes(bytes);
         String data = new String(bytes, StandardCharsets.ISO_8859_1);
+
+        StringBuilder buffer = ctx.channel().attr(BUFFER_KEY).get();
+        if (buffer == null) {
+            buffer = new StringBuilder();
+            ctx.channel().attr(BUFFER_KEY).set(buffer);
+        }
         buffer.append(data);
 
         // 循环处理所有完整消息
@@ -198,16 +218,21 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
             return;
         }
 
-        if ("recording".equals(recordState.get(sessionId))) {
+        // 原子操作：使用 putIfAbsent 防止重复触发
+        if (recordState.putIfAbsent(sessionId, "recording") != null) {
             return;
         }
-        recordState.put(sessionId, "recording");
 
-        String recordFile = RECORD_DIR + sessionId + "_" + System.currentTimeMillis() + ".wav";
-        new File(RECORD_DIR).mkdirs();
+        // 转为绝对路径，FreeSWITCH 需要绝对路径才能写入录音文件
+        File recordDirFile = new File(recordDir);
+        recordDirFile.mkdirs();
+        // 规范化路径：统一使用正斜杠，移除冗余的 ./ 
+        String absoluteRecordDir = recordDirFile.getAbsolutePath()
+                .replace("\\", "/")
+                .replace("/./", "/");
+        String recordFile = absoluteRecordDir + "/" + sessionId + "_" + System.currentTimeMillis() + ".wav";
 
         session.getChannel().eventLoop().execute(() -> {
-            // 使用 uuid_record API，指定 read 方向只录制用户语音
             String command = "uuid_record " + sessionId + " start " + recordFile + " 30 read";
             sendApiCommand(session.getChannel(), command);
             log.info("开始录音(uuid_record, read方向): sessionId={}, file={}", sessionId, recordFile);
@@ -215,7 +240,7 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
         });
 
         // 5秒后停止录音
-        new Thread(() -> {
+        executorService.submit(() -> {
             try {
                 Thread.sleep(5000);
                 session.getChannel().eventLoop().execute(() -> {
@@ -229,7 +254,7 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-        }, "record-timer-" + sessionId).start();
+        });
     }
 
     /**
@@ -259,11 +284,11 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
 
         recordState.put(sessionId, "processing");
 
-        new Thread(() -> {
+        executorService.submit(() -> {
             try {
                 File file = new File(recordFile);
                 int retry = 0;
-                while (!file.exists() && file.length() == 0 && retry < 10) {
+                while ((!file.exists() || file.length() == 0) && retry < 10) {
                     Thread.sleep(200);
                     retry++;
                 }
@@ -276,7 +301,6 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
                 log.info("读取录音文件: {}, 大小={} bytes", recordFile, file.length());
 
                 byte[] audioData = Files.readAllBytes(file.toPath());
-                // 跳过 WAV 文件头（44字节），只喂 PCM 数据给 ASR
                 int headerSize = 44;
                 if (audioData.length <= headerSize) {
                     log.warn("录音文件太小: {}", audioData.length);
@@ -290,8 +314,11 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
 
             } catch (Exception e) {
                 log.error("处理录音文件失败: sessionId={}", sessionId, e);
+            } finally {
+                // 确保清理录音状态，允许下次录音
+                recordState.remove(sessionId);
             }
-        }, "asr-process-" + sessionId).start();
+        });
     }
 
     private void handleConnect(ChannelHandlerContext ctx, String msg) {
@@ -314,7 +341,7 @@ public class AudioSocketByteHandler extends SimpleChannelInboundHandler<ByteBuf>
         session.setAsrStarted(true);
 
         // 异步执行欢迎流程，避免阻塞 Netty 事件循环
-        new Thread(() -> dialogManager.handleWelcome(session), "welcome-" + uuid).start();
+        executorService.submit(() -> dialogManager.handleWelcome(session));
     }
 
     private void handleChannelData(ChannelHandlerContext ctx, String msg, byte[] audioData) {

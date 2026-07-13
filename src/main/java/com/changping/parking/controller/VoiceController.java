@@ -1,6 +1,7 @@
 package com.changping.parking.controller;
 
 import com.changping.parking.speech.TtsService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -8,6 +9,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Size;
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,9 +22,13 @@ import java.util.Map;
  * 
  * @author Changping Parking AI Team
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/voice")
 public class VoiceController {
+
+    /** 最大文本长度限制（防止 TTS 服务 OOM） */
+    private static final int MAX_TEXT_LENGTH = 500;
 
     /** TTS 服务 */
     private final TtsService ttsService;
@@ -46,10 +53,14 @@ public class VoiceController {
      */
     @GetMapping("/tts")
     public ResponseEntity<Resource> textToSpeech(
-            @RequestParam String text,
+            @RequestParam @NotBlank @Size(max = MAX_TEXT_LENGTH) String text,
             @RequestParam(required = false) String sessionId) {
         
         if (text == null || text.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        if (text.length() > MAX_TEXT_LENGTH) {
             return ResponseEntity.badRequest().build();
         }
 
@@ -74,6 +85,7 @@ public class VoiceController {
                     .body(resource);
                     
         } catch (Exception e) {
+            log.error("TTS 合成失败: text={}", text.length() > 50 ? text.substring(0, 50) + "..." : text, e);
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -87,7 +99,7 @@ public class VoiceController {
      * @return 合成结果
      */
     @GetMapping("/tts/test")
-    public Map<String, Object> testTts(@RequestParam String text) {
+    public Map<String, Object> testTts(@RequestParam @NotBlank @Size(max = MAX_TEXT_LENGTH) String text) {
         Map<String, Object> result = new HashMap<>();
         
         try {
@@ -103,8 +115,9 @@ public class VoiceController {
                 result.put("message", "语音合成失败");
             }
         } catch (Exception e) {
+            log.error("TTS 测试失败", e);
             result.put("success", false);
-            result.put("message", "语音合成异常: " + e.getMessage());
+            result.put("message", "语音合成服务异常");
         }
         
         return result;

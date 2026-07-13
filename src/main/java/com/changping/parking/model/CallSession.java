@@ -39,8 +39,11 @@ public class CallSession {
     /** 当前选中的停车场名称 */
     private String currentParkingName;
 
-    /** 对话历史记录，格式为 "用户: xxx" 或 "客服: xxx" */
+    /** 对话历史记录，格式为 "用户: xxx" 或 "客服: xxx"，最多保留 50 条 */
     private List<String> conversationHistory;
+
+    /** 对话历史最大保留条数 */
+    private static final int MAX_HISTORY_SIZE = 50;
 
     /** 会话开始时间 */
     private LocalDateTime startTime;
@@ -78,6 +81,9 @@ public class CallSession {
      * @param message 用户消息内容
      */
     public void addUserMessage(String message) {
+        if (conversationHistory.size() >= MAX_HISTORY_SIZE) {
+            conversationHistory.remove(0);
+        }
         conversationHistory.add("用户: " + message);
         lastActivityTime = LocalDateTime.now();
     }
@@ -88,6 +94,9 @@ public class CallSession {
      * @param message 客服回复内容
      */
     public void addBotMessage(String message) {
+        if (conversationHistory.size() >= MAX_HISTORY_SIZE) {
+            conversationHistory.remove(0);
+        }
         conversationHistory.add("客服: " + message);
         lastActivityTime = LocalDateTime.now();
     }

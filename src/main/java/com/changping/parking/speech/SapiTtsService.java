@@ -69,16 +69,17 @@ public class SapiTtsService implements TtsService {
             pb.redirectErrorStream(true);
             Process process = pb.start();
 
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String line;
             StringBuilder output = new StringBuilder();
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
             }
 
             int exitCode = process.waitFor();
             if (exitCode == 0 && filePath.toFile().exists()) {
-                log.info("SAPI TTS 合成完成: text={}, file={}", text, absolutePath);
+                log.info("SAPI TTS 合成完成: text={}, file={}", text.length() > 30 ? text.substring(0, 30) + "..." : text, absolutePath);
                 // 转换采样率为 8kHz（FreeSWITCH 要求）
                 return convertSampleRate(absolutePath, sampleRate);
             } else {
@@ -102,8 +103,14 @@ public class SapiTtsService implements TtsService {
      * @return PowerShell 脚本字符串
      */
     private String buildPowerShellScript(String text, String outputPath, String voice) {
-        // 转义文本中的特殊字符
-        String escapedText = text.replace("'", "''").replace("\"", "\\\"");
+        // 转义文本中的特殊字符，防止 PowerShell 脚本注入
+        String escapedText = text.replace("\\", "\\\\")
+                .replace("'", "''")
+                .replace("\"", "\\\"")
+                .replace("\n", " ")
+                .replace("\r", " ")
+                .replace("$", "\\$")
+                .replace("`", "``");
         String escapedPath = outputPath.replace("'", "''");
         
         return String.format(

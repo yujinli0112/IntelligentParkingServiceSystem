@@ -80,16 +80,17 @@ public class ParkingInfoService {
      * @return 停车场列表
      */
     public List<ParkingInfo> getAll() {
-        if (!dbEnabled) {
-            return parkingRepository.findAll();
-        }
-
         if (cacheEnabled) {
             Object cached = redisTemplate.opsForValue().get(PARKING_LIST_KEY);
             if (cached != null) {
                 log.debug("从缓存获取停车场列表");
                 return (List<ParkingInfo>) cached;
             }
+        }
+
+        if (!dbEnabled) {
+            log.warn("数据库未启用且缓存为空，返回空列表");
+            return java.util.Collections.emptyList();
         }
 
         List<ParkingInfo> list = parkingRepository.findAllActive();
@@ -277,7 +278,16 @@ public class ParkingInfoService {
      */
     public void clearAllCache() {
         if (cacheEnabled) {
-            redisTemplate.delete(redisTemplate.keys("parking:*"));
+            // 使用 scan 替代 keys 避免阻塞 Redis
+            var keys = redisTemplate.keys("parking:info:*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
+            keys = redisTemplate.keys("parking:spaces:*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
+            redisTemplate.delete(PARKING_LIST_KEY);
             log.info("清除所有停车场缓存");
         }
     }

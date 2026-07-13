@@ -12,8 +12,8 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * WebSocket 语音对话处理器
@@ -29,8 +29,8 @@ public class VoiceWebSocketHandler extends TextWebSocketHandler {
     private final DialogManager dialogManager;
     private final CallSessionManager sessionManager;
 
-    /** WebSocket 会话与通话会话的映射 */
-    private final Map<String, WebSocketSession> webSocketSessions = new HashMap<>();
+    /** WebSocket 会话与通话会话的映射，使用 ConcurrentHashMap 保证线程安全 */
+    private final Map<String, WebSocketSession> webSocketSessions = new ConcurrentHashMap<>();
 
     public VoiceWebSocketHandler(DialogManager dialogManager, CallSessionManager sessionManager) {
         this.dialogManager = dialogManager;

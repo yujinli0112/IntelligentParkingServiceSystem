@@ -7,19 +7,20 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "asr.provider", havingValue = "mock", matchIfMissing = true)
+@ConditionalOnProperty(name = "asr.provider", havingValue = "mock")
 public class MockAsrService implements AsrService {
 
     private final Map<String, AsrSession> sessions = new ConcurrentHashMap<>();
     private AsrService.AsrResultCallback callback;
 
     private static class AsrSession {
-        long totalBytes = 0;
-        long lastSentBytes = 0;
-        AtomicInteger mockIndex = new AtomicInteger(0);
+        final AtomicLong totalBytes = new AtomicLong(0);
+        final AtomicLong lastSentBytes = new AtomicLong(0);
+        final AtomicInteger mockIndex = new AtomicInteger(0);
     }
 
     @Override
@@ -35,10 +36,10 @@ public class MockAsrService implements AsrService {
             return;
         }
 
-        session.totalBytes += audioData.length;
+        long total = session.totalBytes.addAndGet(audioData.length);
 
-        if (session.totalBytes > session.lastSentBytes + 16000) {
-            session.lastSentBytes = session.totalBytes;
+        if (total > session.lastSentBytes.get() + 16000) {
+            session.lastSentBytes.set(total);
             String mockText = generateMockText(session.mockIndex.getAndIncrement());
             if (mockText != null && callback != null) {
                 log.info("Mock ASR 识别结果[{}]: {}", sessionId, mockText);

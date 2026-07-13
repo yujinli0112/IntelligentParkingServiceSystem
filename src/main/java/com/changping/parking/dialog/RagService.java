@@ -2,14 +2,13 @@ package com.changping.parking.dialog;
 
 import com.changping.parking.knowledge.ParkingInfoService;
 import com.changping.parking.model.ParkingInfo;
+import dev.langchain4j.model.chat.ChatLanguageModel;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * RAG（检索增强生成）服务
@@ -26,6 +25,10 @@ public class RagService {
 
     /** 停车场信息服务，用于获取停车场数据 */
     private final ParkingInfoService parkingInfoService;
+
+    /** LLM 模型（仅在非 mock 模式下注入） */
+    @Autowired(required = false)
+    private ChatLanguageModel chatLanguageModel;
 
     /** LLM 提供商配置，可选值：mock / deepseek / openai */
     @Value("${llm.provider:mock}")
@@ -201,13 +204,25 @@ public class RagService {
     /**
      * 调用 LLM 服务
      * 
-     * 此方法为占位实现，实际项目中需要根据配置的提供商调用对应的 API。
+     * 根据配置的提供商调用对应的 LLM API。
      * 
      * @param prompt 提示词
      * @return LLM 返回的回答
      */
     private String callLlm(String prompt) {
-        log.warn("LLM 调用未配置，请设置 llm.provider 为 deepseek 或 openai");
-        return "抱歉，AI 服务暂时不可用，请稍后再试。";
+        if (chatLanguageModel == null) {
+            log.warn("LLM 未配置或 llm.provider 为 mock，使用规则回答");
+            return "抱歉，AI 服务暂时不可用，请稍后再试。";
+        }
+
+        try {
+            log.info("调用 LLM 生成回答，provider={}", llmProvider);
+            String response = chatLanguageModel.generate(prompt);
+            log.info("LLM 回答: {}", response);
+            return response;
+        } catch (Exception e) {
+            log.error("LLM 调用失败", e);
+            throw new RuntimeException("LLM 调用失败", e);
+        }
     }
 }

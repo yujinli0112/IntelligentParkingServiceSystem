@@ -37,8 +37,12 @@ public class ElasticsearchConfig {
     @Bean
     public RestHighLevelClient elasticsearchClient() {
         log.info("初始化 Elasticsearch 客户端: {}", esUris);
+        // 提取 host:port，去除协议前缀
+        String hostPort = esUris.replaceFirst("^https?://", "");
         ClientConfiguration configuration = ClientConfiguration.builder()
-                .connectedTo(esUris.replace("http://", "").replace("https://", ""))
+                .connectedTo(hostPort)
+                .withConnectTimeout(java.time.Duration.ofSeconds(5))
+                .withSocketTimeout(java.time.Duration.ofSeconds(30))
                 .build();
         return RestClients.create(configuration).rest();
     }

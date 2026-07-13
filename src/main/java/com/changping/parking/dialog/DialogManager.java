@@ -7,9 +7,12 @@ import com.changping.parking.service.CallRecordService;
 import com.changping.parking.speech.AsrService;
 import com.changping.parking.tcp.AudioSocketByteHandler;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * 对话管理器
@@ -40,6 +43,42 @@ public class DialogManager {
 
     /** 通话记录服务，用于保存通话记录 */
     private final CallRecordService callRecordService;
+
+    /** 线程池，用于异步挂断等操作 */
+    private final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        t.setName("dialog-async-" + t.getId());
+        return t;
+    });
+
+    // ========== 系统提示文本（从配置读取） ==========
+    @Value("${system.welcome:您好，欢迎致电昌平区智能停车服务系统。请问您想查询哪个停车场？}")
+    private String welcomeText;
+
+    @Value("${system.retryParking:抱歉，我没有听清您说的停车场名称。请您再说一遍好吗？}")
+    private String retryParkingText;
+
+    @Value("${system.confirmParking:您想咨询的是%s对吗？}")
+    private String confirmParkingText;
+
+    @Value("${system.parkIntro:好的，已为您接入%s的智能咨询服务。您可以问我关于营业时间、收费标准、剩余车位等问题。}")
+    private String parkIntroText;
+
+    @Value("${system.denyParking:抱歉，那请问您想查询哪个停车场呢？}")
+    private String denyParkingText;
+
+    @Value("${system.clarifyParking:请问是这个停车场吗？请说是或者不是。}")
+    private String clarifyParkingText;
+
+    @Value("${system.goodbye:感谢您的来电，祝您停车愉快，再见！}")
+    private String goodbyeText;
+
+    @Value("${system.exampleParking:比如西关环岛停车场或者体育馆停车场}")
+    private String exampleParkingText;
+
+    @Value("${system.notFoundParking:抱歉，没有找到您说的这个停车场。请问您想查询哪个停车场呢？}")
+    private String notFoundParkingText;
 
     /**
      * 构造函数
@@ -81,7 +120,6 @@ public class DialogManager {
      * @param session 通话会话
      */
     public void handleWelcome(CallSession session) {
-        String welcomeText = "您好，欢迎致电昌平区智能停车服务系统。请问您想查询哪个停车场？";
         log.info("[{}] 播放欢迎语", session.getSessionId());
         session.addBotMessage(welcomeText);
         session.transitionTo(DialogState.IDENTIFYING_PARK);
@@ -145,12 +183,14 @@ public class DialogManager {
             session.setPendingParkingName(parkingName);
             session.transitionTo(DialogState.PARK_CONFIRMATION);
 
-            String confirmText = String.format("您想咨询的是%s对吗？", parkingName);
+            String confirmText = String.format(confirmParkingText, parkingName);
             session.addBotMessage(confirmText);
             audioSocketByteHandler.playAudioInline(session.getSessionId(), confirmText);
             return confirmText;
         } else {
-            String retryText = "抱歉，我没有听清您说的停车场名称。请您再说一遍好吗？比如西关环岛停车场或者体育馆停车场。";
+            // 区分"没听清"和"找不到"：用户提到停车相关关键词则说明是找不到该停车场
+            boolean mentionsParking = containsParkingKeyword(text);
+            String retryText = mentionsParking ? notFoundParkingText : (retryParkingText + exampleParkingText);
             session.addBotMessage(retryText);
             audioSocketByteHandler.playAudioInline(session.getSessionId(), retryText);
             return retryText;
@@ -178,8 +218,7 @@ public class DialogManager {
             session.setPendingParkingName(null);
             session.transitionTo(DialogState.QA_LOOP);
 
-            String confirmText = String.format("好的，已为您接入%s的智能咨询服务。您可以问我关于营业时间、收费标准、剩余车位等问题。",
-                    session.getCurrentParkingName());
+            String confirmText = String.format(parkIntroText, session.getCurrentParkingName());
             session.addBotMessage(confirmText);
             audioSocketByteHandler.playAudioInline(session.getSessionId(), confirmText);
             return confirmText;
@@ -188,15 +227,13 @@ public class DialogManager {
             session.setPendingParkingName(null);
             session.transitionTo(DialogState.IDENTIFYING_PARK);
 
-            String retryText = "抱歉，那请问您想查询哪个停车场呢？";
-            session.addBotMessage(retryText);
-            audioSocketByteHandler.playAudioInline(session.getSessionId(), retryText);
-            return retryText;
+            session.addBotMessage(denyParkingText);
+            audioSocketByteHandler.playAudioInline(session.getSessionId(), denyParkingText);
+            return denyParkingText;
         } else {
-            String clarifyText = "请问是这个停车场吗？请说是或者不是。";
-            session.addBotMessage(clarifyText);
-            audioSocketByteHandler.playAudioInline(session.getSessionId(), clarifyText);
-            return clarifyText;
+            session.addBotMessage(clarifyParkingText);
+            audioSocketByteHandler.playAudioInline(session.getSessionId(), clarifyParkingText);
+            return clarifyParkingText;
         }
     }
 
@@ -231,20 +268,19 @@ public class DialogManager {
      */
     public String handleEnd(CallSession session) {
         session.transitionTo(DialogState.END);
-        String goodbyeText = "感谢您的来电，祝您停车愉快，再见！";
         session.addBotMessage(goodbyeText);
         audioSocketByteHandler.playAudioInline(session.getSessionId(), goodbyeText);
 
         callRecordService.saveRecord(session);
 
-        new Thread(() -> {
+        executorService.submit(() -> {
             try {
                 Thread.sleep(3000);
                 audioSocketByteHandler.hangup(session.getSessionId());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-        }).start();
+        });
         
         return goodbyeText;
     }
@@ -334,6 +370,18 @@ public class DialogManager {
         String[] goodbyes = {"再见", "拜拜", "没有问题了", "没问题了", "没啥问题了", "没啥问题", "没啥了", "好了就这样", "就这样", "没了", "没有了", "谢谢", "感谢", "好的", "可以了"};
         for (String g : goodbyes) {
             if (text.contains(g)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * 判断用户输入是否包含停车相关关键词
+     * 用于区分"没听清"和"停车场不存在"两种场景
+     */
+    private boolean containsParkingKeyword(String text) {
+        String[] keywords = {"停车场", "停车", "车位", "parking", "车库"};
+        for (String k : keywords) {
+            if (text.contains(k)) return true;
         }
         return false;
     }

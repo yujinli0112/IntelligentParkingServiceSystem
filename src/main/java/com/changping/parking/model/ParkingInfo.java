@@ -30,7 +30,8 @@ import java.util.Set;
 @Document(indexName = "parking_info")
 public class ParkingInfo {
 
-    /** 停车场唯一标识，格式为 P+数字（如 P001） */
+    /** 停车场唯一标识，格式为 P+数字（如 P001）
+     *  @javax.persistence.Id 用于 JPA，@org.springframework.data.annotation.Id 用于 Elasticsearch */
     @javax.persistence.Id
     @org.springframework.data.annotation.Id
     @Column(name = "id", length = 20)

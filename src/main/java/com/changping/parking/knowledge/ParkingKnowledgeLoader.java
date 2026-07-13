@@ -67,7 +67,7 @@ public class ParkingKnowledgeLoader {
             log.info("ES 索引初始化完成，共 {} 条记录", parkingList.size());
 
         } catch (Exception e) {
-            log.warn("ES 知识库初始化失败（可能 ES 未启动），将使用内存数据: {}", e.getMessage());
+            log.warn("ES 知识库初始化失败（可能 ES 未启动），将使用内存数据", e);
         }
     }
 }

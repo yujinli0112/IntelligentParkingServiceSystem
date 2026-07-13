@@ -1,6 +1,7 @@
 package com.changping.parking.repository;
 
 import com.changping.parking.model.CallRecord;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -76,7 +77,7 @@ public interface CallRecordRepository extends JpaRepository<CallRecord, Long> {
      * @return 停车场 ID 列表
      */
     @Query("SELECT cr.parkingId FROM CallRecord cr WHERE cr.parkingId IS NOT NULL GROUP BY cr.parkingId ORDER BY COUNT(cr) DESC")
-    List<String> findHotParkingIds(@Param("limit") int limit);
+    List<String> findHotParkingIds(Pageable pageable);
 
     /**
      * 统计每日通话量

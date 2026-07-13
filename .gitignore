@@ -9,6 +9,9 @@ build/
 *.iws
 *.ipr
 
+# VS Code 配置
+.vscode/
+
 # Eclipse
 .classpath
 .project
@@ -26,3 +29,8 @@ logs/
 
 temp/audio/
 temp/record/
+
+# 环境变量（包含敏感信息，不得提交）
+.env
+.env.*
+application-local.yml

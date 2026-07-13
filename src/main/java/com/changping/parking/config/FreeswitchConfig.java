@@ -5,11 +5,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 
+import javax.annotation.PreDestroy;
 import javax.annotation.PostConstruct;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * FreeSWITCH ESL（Event Socket Library）配置类
@@ -48,6 +51,14 @@ public class FreeswitchConfig {
     /** 输入流，用于接收响应和事件 */
     private BufferedReader in;
 
+    /** 线程池，用于 ESL 事件监听 */
+    private final ExecutorService eslExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        t.setName("freeswitch-esl-listener");
+        return t;
+    });
+
     /**
      * 初始化方法，建立 ESL 连接并订阅事件
      */
@@ -79,6 +90,7 @@ public class FreeswitchConfig {
                 }
                 if (authResp.toString().contains("-ERR")) {
                     log.error("FreeSWITCH ESL 认证失败");
+                    closeResources();
                     return;
                 }
             }
@@ -90,8 +102,31 @@ public class FreeswitchConfig {
             startEventListener();
 
         } catch (Exception e) {
-            log.warn("FreeSWITCH ESL 连接失败（可选功能）: {}", e.getMessage());
+            log.error("FreeSWITCH ESL 连接失败: {}", e.getMessage());
+            closeResources();
         }
+    }
+
+    /**
+     * 关闭所有 ESL 连接资源
+     */
+    private void closeResources() {
+        try {
+            if (in != null) { in.close(); }
+        } catch (Exception ignored) {}
+        try {
+            if (out != null) { out.close(); }
+        } catch (Exception ignored) {}
+        try {
+            if (socket != null && !socket.isClosed()) { socket.close(); }
+        } catch (Exception ignored) {}
+    }
+
+    @PreDestroy
+    public void destroy() {
+        log.info("关闭 FreeSWITCH ESL 连接");
+        eslExecutor.shutdownNow();
+        closeResources();
     }
 
     /**
@@ -100,7 +135,7 @@ public class FreeswitchConfig {
      * 持续读取 ESL 事件并记录日志。
      */
     private void startEventListener() {
-        new Thread(() -> {
+        eslExecutor.submit(() -> {
             try {
                 String line;
                 StringBuilder eventBuffer = new StringBuilder();
@@ -120,7 +155,7 @@ public class FreeswitchConfig {
             } catch (Exception e) {
                 log.warn("ESL 事件监听线程结束: {}", e.getMessage());
             }
-        }, "freeswitch-esl-listener").start();
+        });
     }
 
     /**

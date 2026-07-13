@@ -1,14 +1,16 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
     name: parking-ai-callcenter
-  
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
   datasource:
-    url: jdbc:mysql://localhost:3306/parking_ai?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: 1234
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/parking_ai?useUnicode=true&characterEncoding=utf8&useSSL=true&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: ParkingHikariPool
@@ -17,7 +19,7 @@ spring:
       idle-timeout: 600000
       connection-timeout: 30000
       max-lifetime: 1800000
-  
+
   jpa:
     database-platform: org.hibernate.dialect.MySQL8Dialect
     hibernate:
@@ -26,7 +28,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
-  
+
   data:
     redis:
       repositories:
@@ -35,21 +37,21 @@ spring:
 freeswitch:
   esl:
     enabled: false
-    host: 127.0.0.1
-    port: 8021
-    password: ClueCon
+    host: ${FS_ESL_HOST:127.0.0.1}
+    port: ${FS_ESL_PORT:8021}
+    password: ${FS_ESL_PASSWORD:}
   socket:
-    port: 8084
+    port: ${FS_SOCKET_PORT:8084}
 
 asr:
-  provider: baidu
+  provider: ${ASR_PROVIDER:baidu}
   baidu:
-    apiKey: doUC2ita7Q47IJ4IRrNnQFyG
-    secretKey: hBCaLapp1TvxcyeZ8txuel8uAS51908G
+    apiKey: ${BAIDU_ASR_API_KEY:doUC2ita7Q47IJ4IRrNnQFyG}
+    secretKey: ${BAIDU_ASR_SECRET_KEY:hBCaLapp1TvxcyeZ8txuel8uAS51908G}
   aliyun:
-    appKey: your-app-key
-    accessKeyId: your-access-key-id
-    accessKeySecret: your-access-key-secret
+    appKey: ${ALIYUN_ASR_APP_KEY:}
+    accessKeyId: ${ALIYUN_ASR_ACCESS_KEY_ID:}
+    accessKeySecret: ${ALIYUN_ASR_ACCESS_KEY_SECRET:}
 
 tts:
   provider: sapi
@@ -61,17 +63,18 @@ tts:
     accessKeySecret: your-access-key-secret
     voice: xiaoyun
     sampleRate: 8000
+    url: ${TTS_ALIYUN_URL:https://nls-gateway-cn-shanghai.aliyuncs.com/stream/v1/tts}
 
 llm:
-  provider: mock
+  provider: ${LLM_PROVIDER:deepseek}
   deepseek:
-    baseUrl: https://api.deepseek.com
-    apiKey: sk-xxx
-    model: deepseek-chat
+    baseUrl: ${LLM_DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    apiKey: ${LLM_DEEPSEEK_API_KEY:sk-3ecc421d16494f64ad51d4beded10e75}
+    model: ${LLM_DEEPSEEK_MODEL:deepseek-chat}
   openai:
-    baseUrl: https://api.openai.com/v1
-    apiKey: sk-xxx
-    model: gpt-3.5-turbo
+    baseUrl: ${LLM_OPENAI_BASE_URL:https://api.openai.com/v1}
+    apiKey: ${LLM_OPENAI_API_KEY:}
+    model: ${LLM_OPENAI_MODEL:gpt-3.5-turbo}
 
 parking:
   db:
@@ -93,11 +96,42 @@ knowledge:
 
 audio:
   tempDir: ./temp/audio
+  recordDir: ./temp/record
   sampleRate: 8000
   channels: 1
   sampleSizeInBits: 16
 
+# 系统提示文本（可配置）
+system:
+  name: 昌平区智能停车服务系统
+  welcome: 您好，欢迎致电${system.name}。请问您想查询哪个停车场？
+  retryParking: 抱歉，我没有听清您说的停车场名称。请您再说一遍好吗？
+  confirmParking: 您想咨询的是%s对吗？
+  parkIntro: 好的，已为您接入%s的智能咨询服务。您可以问我关于营业时间、收费标准、剩余车位等问题。
+  denyParking: 抱歉，那请问您想查询哪个停车场呢？
+  clarifyParking: 请问是这个停车场吗？请说是或者不是。
+  goodbye: 感谢您的来电，祝您停车愉快，再见！
+  exampleParking: 比如西关环岛停车场或者体育馆停车场
+  notFoundParking: 抱歉，没有找到您说的这个停车场。请问您想查询哪个停车场呢？
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
 logging:
   level:
-    com.changping.parking: DEBUG
-    dev.langchain4j: INFO
+    root: INFO
+    com.changping.parking: ${LOG_LEVEL:INFO}
+    dev.langchain4j: WARN
+  file:
+    path: ./logs
+  logback:
+    rollingpolicy:
+      max-file-size: 50MB
+      max-history: 30
+      file-name-pattern: ./logs/parking-ai-%d{yyyy-MM-dd}.%i.log

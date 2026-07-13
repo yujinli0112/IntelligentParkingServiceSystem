@@ -4,6 +4,8 @@ import com.changping.parking.model.CallRecord;
 import com.changping.parking.model.CallSession;
 import com.changping.parking.repository.CallRecordRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -91,7 +93,7 @@ public class CallRecordService {
      * @return 停车场 ID 列表
      */
     public List<String> findHotParkingIds(int limit) {
-        return callRecordRepository.findHotParkingIds(limit);
+        return callRecordRepository.findHotParkingIds(PageRequest.of(0, limit));
     }
 
     /**
